@@ -1,9 +1,11 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
-const config = require('./config'); // Import the config file if it exists
+const express = require('express');
+const config = require('./config');
 
-// Use the token from config or environment variables
 const TOKEN = config.TOKEN || process.env.TOKEN;
+const PORT = process.env.PORT || 3000; // Use PORT environment variable or default to 3000
 
+const app = express();
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -11,6 +13,15 @@ const client = new Client({
         GatewayIntentBits.MessageContent,
     ],
     partials: [Partials.Message],
+});
+
+// Simple HTTP server to keep the service alive
+app.get('/', (req, res) => {
+    res.send('Bot is running');
+});
+
+app.listen(PORT, () => {
+    console.log(`HTTP server running on port ${PORT}`);
 });
 
 // Define conversion functions

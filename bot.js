@@ -1,9 +1,10 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const express = require('express');
+const fetch = require('node-fetch'); // Required for fetching attachments
 const config = require('./config');
 
 const TOKEN = config.TOKEN || process.env.TOKEN;
-const PORT = process.env.PORT || 3000; // Use PORT environment variable or default to 3000
+const PORT = process.env.PORT || 3000; // Default port
 
 const app = express();
 const client = new Client({
@@ -24,13 +25,35 @@ app.listen(PORT, () => {
     console.log(`HTTP server running on port ${PORT}`);
 });
 
-// Define conversion functions
+// Conversion functions
 function convertQBCoreToESX(script) {
-    return script.replace("local QBCore = exports['qb-core']:GetCoreObject()", "while ESX == nil do");
+    let convertedScript = script
+        .replace(/QBCore\.Functions\.GetPlayer\((.*?)\)/g, 'ESX.GetPlayerFromId($1)')
+        .replace(/exports\['qb-core'\]:GetCoreObject\(\)/g, 'while ESX == nil do')
+        .replace(/QBCore:Notify/g, 'esx:showNotification')
+        .replace(/QBCore/g, 'ESX')
+        .replace(/QBCore\.Functions\.TriggerCallback\((.*?),\s*function/g, 'ESX.TriggerServerCallback($1, function')
+        .replace(/TriggerClientEvent\('QBCore:Notify',/g, 'TriggerClientEvent(\'esx:showNotification\',')
+        .replace(/TriggerEvent\('QBCore:Client:CreateBlip',/g, 'TriggerEvent(\'esx:client:CreateBlip\',')
+        .replace(/RegisterNetEvent\("QBCore:Client:.*?"/g, match => match.replace('QBCore:', 'esx:'))
+        .replace(/QBCore\.Functions\..*?(\bget\w+)/g, 'ESX.Get$1') // Generic function replacement
+        .replace(/QBCore\..*?(\bNotify|Blip)/g, 'ESX.$1'); // General replacements for notifications and blips
+    return convertedScript;
 }
 
 function convertESXToQBCore(script) {
-    return script.replace("while ESX == nil do", "local QBCore = exports['qb-core']:GetCoreObject()");
+    let convertedScript = script
+        .replace(/ESX\.GetPlayerFromId\((.*?)\)/g, 'QBCore.Functions.GetPlayer($1)')
+        .replace(/while ESX == nil do/g, "local QBCore = exports['qb-core']:GetCoreObject()")
+        .replace(/esx:showNotification/g, 'QBCore:Notify')
+        .replace(/ESX/g, 'QBCore')
+        .replace(/ESX\.TriggerServerCallback\((.*?),\s*function/g, 'QBCore.Functions.TriggerCallback($1, function')
+        .replace(/TriggerClientEvent\('esx:showNotification',/g, 'TriggerClientEvent(\'QBCore:Notify\',')
+        .replace(/TriggerEvent\('esx:client:CreateBlip',/g, 'TriggerEvent(\'QBCore:Client:CreateBlip\',')
+        .replace(/RegisterNetEvent\("esx:.*?"/g, match => match.replace('esx:', 'QBCore:'))
+        .replace(/ESX\.Get.*?(\bget\w+)/g, 'QBCore.Functions.Get$1') // Generic function replacement
+        .replace(/ESX\.Notify|Blip/g, 'QBCore.$1'); // General replacements for notifications and blips
+    return convertedScript;
 }
 
 client.once('ready', () => {
